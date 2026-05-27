@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MedLab Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#0E1117;--ink2:#3D4350;--muted:#8A909C;--border:#E4E7EC;
+  --bg:#F5F6F8;--card:#fff;
+  --green:#1A9E5F;--green-lt:#E6F7EE;
+  --red:#D04040;--red-lt:#FDEAEA;
+  --blue:#1B5FCC;--blue-lt:#EBF1FD;
+  --purple:#5B3FCC;--purple-lt:#EEEAFF;
+  --sans:system-ui,-apple-system,sans-serif;
+  --rad:10px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;}
+
+/* ── AUTH ── */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.auth-card{background:var(--card);border:2px solid var(--border);border-radius:16px;padding:40px 36px;width:100%;max-width:420px;}
+.auth-logo{font-size:36px;margin-bottom:6px;}
+.auth-title{font-size:24px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+.auth-sub{font-size:14px;color:var(--muted);margin-bottom:28px;}
+.auth-tabs{display:flex;gap:0;margin-bottom:20px;border:2px solid var(--border);border-radius:var(--rad);overflow:hidden;}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;background:var(--bg);color:var(--muted);border:none;font-family:var(--sans);}
+.auth-tab.active{background:var(--ink);color:#fff;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;letter-spacing:.03em;text-transform:uppercase;}
+.field input,.field select{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:var(--rad);font-size:15px;font-family:var(--sans);outline:none;background:var(--card);color:var(--ink);}
+.field input:focus,.field select:focus{border-color:var(--ink);}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--rad);font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer;}
+.btn-primary{background:var(--ink);color:#fff;}
+.btn-secondary{background:var(--bg);color:var(--ink);border:2px solid var(--border);}
+.btn-danger{background:var(--red-lt);color:var(--red);border:2px solid var(--red);}
+.btn-sm{padding:7px 14px;font-size:12px;font-weight:700;border-radius:7px;cursor:pointer;border:none;font-family:var(--sans);}
+.auth-err{background:var(--red-lt);border:2px solid var(--red);border-radius:var(--rad);padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:14px;display:none;}
+
+/* ── SHELL ── */
+#app-shell{display:none;}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--ink);padding:24px 16px;display:flex;flex-direction:column;}
+.sidebar-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;padding:0 8px;}
+.sidebar-logo-icon{font-size:24px;}
+.sidebar-logo-text{font-size:18px;font-weight:800;color:#fff;}
+.sidebar-logo-badge{font-size:10px;font-weight:700;background:var(--purple);color:#fff;padding:2px 7px;border-radius:5px;letter-spacing:.04em;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:2px;-webkit-transition:background .15s,color .15s;transition:background .15s,color .15s;border:none;background:none;font-family:var(--sans);width:100%;text-align:left;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;}
+.nav-item-icon{font-size:16px;width:20px;text-align:center;}
+.sidebar-bottom{margin-top:auto;}
+.user-chip{display:flex;align-items:center;gap:9px;padding:10px 12px;background:rgba(255,255,255,.08);border-radius:9px;}
+.user-chip-avatar{width:30px;height:30px;border-radius:50%;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;}
+.user-chip-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.8);flex:1;}
+.logout-btn{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:var(--sans);}
+.logout-btn:hover{color:rgba(255,255,255,.7);}
+
+.main{margin-left:220px;padding:32px 32px;min-height:100vh;}
+.page{display:none;}
+.page.active{display:block;}
+.page-title{font-size:24px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+.page-sub{font-size:14px;color:var(--muted);margin-bottom:28px;}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.stat-card{background:var(--card);border:2px solid var(--border);border-radius:var(--rad);padding:20px;}
+.stat-val{font-size:28px;font-weight:800;color:var(--ink);line-height:1;}
+.stat-lbl{font-size:12px;font-weight:600;color:var(--muted);margin-top:4px;}
+.stat-card.purple{border-color:#C8B8F8;background:var(--purple-lt);}
+.stat-card.green{border-color:#B8E8CC;background:var(--green-lt);}
+
+/* ── TABLES ── */
+.table-wrap{background:var(--card);border:2px solid var(--border);border-radius:var(--rad);overflow:hidden;margin-bottom:20px;}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.table-title{font-size:15px;font-weight:800;color:var(--ink);}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:10px 20px;text-align:left;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+tbody td{padding:13px 20px;font-size:13px;color:var(--ink);border-bottom:1px solid var(--border);}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--bg);}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;}
+.badge-green{background:var(--green-lt);color:var(--green);}
+.badge-blue{background:var(--blue-lt);color:var(--blue);}
+.badge-purple{background:var(--purple-lt);color:var(--purple);}
+.badge-muted{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.4);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border-radius:16px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+.modal-footer{display:flex;gap:10px;margin-top:20px;}
+.modal-footer button{flex:1;}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-grid .span2{grid-column:1/-1;}
+textarea{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:var(--rad);font-size:14px;font-family:var(--sans);outline:none;resize:vertical;min-height:80px;}
+textarea:focus{border-color:var(--ink);}
+.option-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.option-row input{flex:1;}
+.correct-radio{width:18px;height:18px;cursor:pointer;}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:48px 24px;color:var(--muted);}
+.empty-icon{font-size:40px;margin-bottom:10px;opacity:.4;}
+.empty-text{font-size:14px;font-weight:600;}
+
+/* ── CLASS CODE ── */
+.class-code{font-size:32px;font-weight:900;letter-spacing:.15em;color:var(--purple);font-family:monospace;background:var(--purple-lt);border:2px solid #C8B8F8;border-radius:var(--rad);padding:12px 20px;display:inline-block;margin:8px 0;}
+
+/* ── PROGRESS BAR ── */
+.prog-bar{height:6px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;background:var(--purple);border-radius:99px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 20px;border-radius:var(--rad);font-size:13px;font-weight:700;z-index:999;display:none;-webkit-animation:slideUp .2s ease;animation:slideUp .2s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* responsive */
+@media(max-width:900px){
+  .sidebar{width:60px;padding:16px 8px;}
+  .sidebar-logo-text,.sidebar-logo-badge,.nav-item span,.user-chip-name,.logout-btn{display:none;}
+  .nav-item{justify-content:center;}
+  .main{margin-left:60px;padding:20px;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🔬</div>
+    <div class="auth-title">MedLab Admin</div>
+    <div class="auth-sub">Sign in to manage your classes and content</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <div id="login-form">
+      <div class="field"><label>Username</label><input type="text" id="login-username" placeholder="your username" autocomplete="username" autocorrect="off" autocapitalize="off"/></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/></div>
+      <button class="btn btn-primary" onclick="doLogin()">Sign in →</button>
+    </div>
+    <div id="signup-form" style="display:none;">
+      <div class="field"><label>Your name</label><input type="text" id="signup-name" placeholder="Dr. Surname" autocorrect="off"/></div>
+      <div class="field"><label>Username</label><input type="text" id="signup-username" placeholder="choose a username" autocorrect="off" autocapitalize="off"/></div>
+      <div class="field"><label>Password</label><input type="password" id="signup-password" placeholder="min 8 characters" autocomplete="new-password"/></div>
+      <div class="field"><label>Role</label>
+        <select id="signup-role">
+          <option value="teacher">Teacher</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="doSignup()">Create account →</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-shell">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🔬</div>
+      <div>
+        <div class="sidebar-logo-text">MedLab</div>
+        <div class="sidebar-logo-badge">ADMIN</div>
+      </div>
+    </div>
+    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="nav-item-icon">📊</span><span>Dashboard</span></button>
+    <button class="nav-item" onclick="showPage('classes')" id="nav-classes"><span class="nav-item-icon">🏫</span><span>Classes</span></button>
+    <button class="nav-item" onclick="showPage('questions')" id="nav-questions"><span class="nav-item-icon">❓</span><span>Questions</span></button>
+    <button class="nav-item" onclick="showPage('students')" id="nav-students"><span class="nav-item-icon">👥</span><span>Students</span></button>
+    <button class="nav-item" onclick="showPage('progress')" id="nav-progress"><span class="nav-item-icon">📈</span><span>Progress</span></button>
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="user-chip-avatar" id="sidebar-avatar">?</div>
+        <div class="user-chip-name" id="sidebar-name">Loading...</div>
+        <button class="logout-btn" onclick="doLogout()">out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="dash-greeting">Good morning</div>
+      <div class="stats-row">
+        <div class="stat-card purple"><div class="stat-val" id="stat-classes">—</div><div class="stat-lbl">My classes</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-students">—</div><div class="stat-lbl">Total students</div></div>
+        <div class="stat-card green"><div class="stat-val" id="stat-questions">—</div><div class="stat-lbl">Questions in bank</div></div>
+        <div class="stat-card"><div class="stat-val" id="stat-completions">—</div><div class="stat-lbl">Lessons completed</div></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">My Classes</div>
+          <button class="btn-sm btn-primary" onclick="openCreateClass()">+ New class</button>
+        </div>
+        <table>
+          <thead><tr><th>Class name</th><th>Join code</th><th>Students</th><th>Active</th><th></th></tr></thead>
+          <tbody id="dash-classes-body"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CLASSES -->
+    <div class="page" id="page-classes">
+      <div class="page-title">Classes</div>
+      <div class="page-sub">Create and manage your classes. Share the join code with students.</div>
+      <button class="btn btn-primary" style="width:auto;padding:11px 20px;margin-bottom:20px;" onclick="openCreateClass()">+ Create new class</button>
+      <div id="classes-list"></div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div class="page" id="page-questions">
+      <div class="page-title">Question Bank</div>
+      <div class="page-sub">Add and manage quiz questions. Questions are available to all classes.</div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+        <select id="q-filter-subject" onchange="loadQuestions()" style="padding:10px 14px;border:2px solid var(--border);border-radius:var(--rad);font-size:14px;font-family:var(--sans);background:var(--card);outline:none;">
+          <option value="">All subjects</option>
+          <option value="micro">Microbiology</option>
+          <option value="hema">Haematology</option>
+          <option value="chem">Clinical Chemistry</option>
+          <option value="para">Parasitology</option>
+        </select>
+        <button class="btn btn-primary" style="width:auto;padding:11px 20px;" onclick="openAddQuestion()">+ Add question</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Question</th><th>Subject</th><th>Difficulty</th><th>Created</th><th></th></tr></thead>
+          <tbody id="questions-body"><tr><td colspan="5"><div class="empty"><div class="empty-icon">❓</div><div class="empty-text">No questions yet</div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="page" id="page-students">
+      <div class="page-title">Students</div>
+      <div class="page-sub">View all students across your classes.</div>
+      <div style="margin-bottom:16px;">
+        <select id="s-filter-class" onchange="loadStudents()" style="padding:10px 14px;border:2px solid var(--border);border-radius:var(--rad);font-size:14px;font-family:var(--sans);background:var(--card);outline:none;">
+          <option value="">All classes</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Class</th><th>XP</th><th>Level</th><th>Lessons done</th><th>Streak</th></tr></thead>
+          <tbody id="students-body"><tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students yet</div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="page" id="page-progress">
+      <div class="page-title">Progress</div>
+      <div class="page-sub">See how your students are performing across subjects.</div>
+      <div style="margin-bottom:16px;">
+        <select id="p-filter-class" onchange="loadProgress()" style="padding:10px 14px;border:2px solid var(--border);border-radius:var(--rad);font-size:14px;font-family:var(--sans);background:var(--card);outline:none;">
+          <option value="">Select a class</option>
+        </select>
+      </div>
+      <div id="progress-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: Create class -->
+<div class="modal-overlay" id="modal-create-class">
+  <div class="modal">
+    <div class="modal-title">Create a new class</div>
+    <div class="modal-sub">A 6-digit join code will be generated automatically.</div>
+    <div class="field"><label>Class name</label><input type="text" id="cc-name" placeholder="e.g. MLS Year 2 — Group A" autocorrect="off"/></div>
+    <div class="field"><label>Description (optional)</label><input type="text" id="cc-desc" placeholder="e.g. Morning session, Room 204" autocorrect="off"/></div>
+    <div class="field"><label>Active subjects</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" value="micro" checked class="subj-check"/> 🧫 Microbiology</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" value="hema" checked class="subj-check"/> 🩸 Haematology</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" value="chem" checked class="subj-check"/> ⚗️ Chemistry</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" value="para" checked class="subj-check"/> 🦠 Parasitology</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-create-class')">Cancel</button>
+      <button class="btn btn-primary" onclick="createClass()">Create class →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Class detail -->
+<div class="modal-overlay" id="modal-class-detail">
+  <div class="modal">
+    <div class="modal-title" id="cd-title">Class name</div>
+    <div class="modal-sub">Share this code with your students to join</div>
+    <div class="class-code" id="cd-code">000000</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">Students open the app → Profile → Join class → enter this code</div>
+    <div id="cd-students-wrap">
+      <div style="font-size:13px;font-weight:800;color:var(--muted);margin-bottom:10px;">STUDENTS IN THIS CLASS</div>
+      <div id="cd-students-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="deleteClass()" id="cd-delete-btn">Delete class</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-class-detail')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add question -->
+<div class="modal-overlay" id="modal-add-question">
+  <div class="modal">
+    <div class="modal-title" id="aq-modal-title">Add question</div>
+    <div class="modal-sub">This question will be available to all classes immediately.</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Subject</label>
+        <select id="aq-subject" onchange="loadUnitsForSubject()">
+          <option value="micro">🧫 Microbiology</option>
+          <option value="hema">🩸 Haematology</option>
+          <option value="chem">⚗️ Clinical Chemistry</option>
+          <option value="para">🦠 Parasitology</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Quiz unit</label>
+        <select id="aq-unit"></select>
+      </div>
+      <div class="field span2">
+        <label>Question text</label>
+        <textarea id="aq-question" placeholder="Type the question here..."></textarea>
+      </div>
+      <div class="field span2">
+        <label>Answer options — select the correct one ✓</label>
+        <div id="aq-options">
+          <div class="option-row"><input type="radio" name="correct" value="0" class="correct-radio" checked/><input type="text" class="opt-input" placeholder="Option A"/></div>
+          <div class="option-row"><input type="radio" name="correct" value="1" class="correct-radio"/><input type="text" class="opt-input" placeholder="Option B"/></div>
+          <div class="option-row"><input type="radio" name="correct" value="2" class="correct-radio"/><input type="text" class="opt-input" placeholder="Option C"/></div>
+          <div class="option-row"><input type="radio" name="correct" value="3" class="correct-radio"/><input type="text" class="opt-input" placeholder="Option D"/></div>
+        </div>
+      </div>
+      <div class="field span2">
+        <label>Explanation (shown after answering)</label>
+        <textarea id="aq-explanation" placeholder="Explain why the correct answer is right..."></textarea>
+      </div>
+      <div class="field">
+        <label>Difficulty</label>
+        <select id="aq-difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Image URL (optional)</label>
+        <input type="text" id="aq-image" placeholder="https://..."/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-question')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveQuestion()" id="aq-save-btn">Save question →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// SUPABASE INIT
+// ═══════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://czstalunymskqqftxnrd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6c3RhbHVueW1za3FxZnR4bnJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1ODc1ODcsImV4cCI6MjA5NTE2MzU4N30.G8XYdd0YU5sMMM6Py1cmU9qGzzCmrGRL1CMgtVNSDD4';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Quiz unit map (matches app DB)
+const UNIT_MAP = {
+  micro: [
+    {key:'gram-overview',title:'Gram stain technique'},
+    {key:'gram-identification',title:'Bacterial identification'},
+    {key:'culture-media',title:'Culture media'},
+    {key:'antibiotic-sensitivity',title:'Antibiotic sensitivity'},
+    {key:'infection-control',title:'Infection control'},
+  ],
+  hema: [
+    {key:'blood-cell-overview',title:'Blood cell overview'},
+    {key:'red-cell-indices',title:'Red cell indices'},
+    {key:'wbc-platelets',title:'White cells & platelets'},
+    {key:'iron-deficiency',title:'Iron deficiency anaemia'},
+    {key:'anaemia-classification',title:'Anaemia classification'},
+  ],
+  chem: [
+    {key:'liver-function',title:'Liver function tests'},
+    {key:'renal-function',title:'Renal function'},
+    {key:'glucose-metabolism',title:'Glucose metabolism'},
+    {key:'electrolytes',title:'Electrolytes'},
+    {key:'cardiac-markers',title:'Cardiac markers'},
+  ],
+  para: [
+    {key:'parasite-classification',title:'Parasite classification'},
+    {key:'malaria-diagnosis',title:'Malaria diagnosis'},
+    {key:'intestinal-parasites',title:'Intestinal parasites'},
+    {key:'trichomonas',title:'Trichomonas vaginalis'},
+  ],
+};
+
+const LEVEL_THRESHOLDS = [
+  {min:0,title:'Student',icon:'🎓'},
+  {min:100,title:'Intern',icon:'🩺'},
+  {min:300,title:'Resident',icon:'🔬'},
+  {min:600,title:'Registrar',icon:'⚕️'},
+  {min:1000,title:'Consultant',icon:'🏥'},
+];
+function getLevel(xp){let l=LEVEL_THRESHOLDS[0];LEVEL_THRESHOLDS.forEach(t=>{if(xp>=t.min)l=t;});return l;}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════
+let currentUser = null;
+let currentProfile = null;
+let myClasses = [];
+let editingQuestionId = null;
+let detailClassId = null;
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='signup')));
+  document.getElementById('login-form').style.display = tab==='login'?'block':'none';
+  document.getElementById('signup-form').style.display = tab==='signup'?'block':'none';
+  document.getElementById('auth-err').style.display='none';
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!username||!password){showAuthErr('Please fill in all fields.');return;}
+  // Use username as email with a domain suffix for Supabase
+  const email = username.includes('@') ? username : username+'@medlab.admin';
+  const {data,error} = await sb.auth.signInWithPassword({email,password});
+  if(error){showAuthErr('Invalid username or password.');return;}
+  await initApp(data.user);
+}
+
+async function doSignup() {
+  const name = document.getElementById('signup-name').value.trim();
+  const username = document.getElementById('signup-username').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const role = document.getElementById('signup-role').value;
+  if(!name||!username||!password){showAuthErr('Please fill in all fields.');return;}
+  if(password.length<8){showAuthErr('Password must be at least 8 characters.');return;}
+  const email = username+'@medlab.admin';
+  const {data,error} = await sb.auth.signUp({email,password,options:{data:{name,role}}});
+  if(error){showAuthErr(error.message);return;}
+  toast('Account created! Signing you in...');
+  await initApp(data.user);
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser=null;currentProfile=null;
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('app-shell').style.display='none';
+}
+
+async function initApp(user) {
+  currentUser = user;
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app-shell').style.display='block';
+  // Load profile
+  const {data:profile} = await sb.from('users').select('*').eq('id',user.id).single();
+  currentProfile = profile;
+  const initials = (profile?.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('sidebar-avatar').textContent=initials;
+  document.getElementById('sidebar-name').textContent=profile?.name||'Teacher';
+  const hr=new Date().getHours();
+  document.getElementById('dash-greeting').textContent=(hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')+', '+(profile?.name||'Teacher');
+  loadDashboard();
+}
+
+// Check session on load
+sb.auth.getSession().then(({data:{session}})=>{
+  if(session) initApp(session.user);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('nav-'+page).classList.add('active');
+  if(page==='dashboard') loadDashboard();
+  if(page==='classes') loadClasses();
+  if(page==='questions') loadQuestions();
+  if(page==='students') loadStudents();
+  if(page==='progress') loadProgress();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════
+async function loadDashboard() {
+  // Load my classes
+  const {data:classes} = await sb.from('classes')
+    .select('*, class_members(count)')
+    .eq('teacher_id', currentUser.id)
+    .order('created_at',{ascending:false});
+  myClasses = classes||[];
+
+  document.getElementById('stat-classes').textContent = myClasses.length;
+
+  // Total students
+  let totalStudents = 0;
+  myClasses.forEach(c => { totalStudents += c.class_members?.[0]?.count||0; });
+  document.getElementById('stat-students').textContent = totalStudents;
+
+  // Total questions
+  const {count:qCount} = await sb.from('questions').select('*',{count:'exact',head:true}).eq('is_active',true);
+  document.getElementById('stat-questions').textContent = qCount||0;
+
+  // Total completions
+  const classIds = myClasses.map(c=>c.id);
+  let completions = 0;
+  if(classIds.length>0){
+    const {count:cCount} = await sb.from('progress_lessons')
+      .select('*',{count:'exact',head:true})
+      .in('user_id', await getStudentIds(classIds));
+    completions = cCount||0;
+  }
+  document.getElementById('stat-completions').textContent = completions;
+
+  // Classes table
+  const tbody = document.getElementById('dash-classes-body');
+  if(myClasses.length===0){
+    tbody.innerHTML='<tr><td colspan="5"><div class="empty"><div class="empty-icon">🏫</div><div class="empty-text">No classes yet — create one</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = myClasses.map(c=>`
+    <tr>
+      <td><strong>${c.name}</strong>${c.description?'<br><span style="font-size:11px;color:var(--muted)">'+c.description+'</span>':''}</td>
+      <td><code style="font-size:16px;font-weight:800;color:var(--purple);letter-spacing:.1em;">${c.join_code}</code></td>
+      <td>${c.class_members?.[0]?.count||0}</td>
+      <td><span class="badge ${c.is_active?'badge-green':'badge-muted'}">${c.is_active?'Active':'Inactive'}</span></td>
+      <td><button class="btn-sm btn-primary" onclick="openClassDetail('${c.id}')">View →</button></td>
+    </tr>
+  `).join('');
+}
+
+async function getStudentIds(classIds) {
+  if(!classIds||classIds.length===0) return [];
+  const {data} = await sb.from('class_members').select('user_id').in('class_id',classIds);
+  return (data||[]).map(d=>d.user_id);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLASSES
+// ═══════════════════════════════════════════════════════════════════
+async function loadClasses() {
+  const {data:classes} = await sb.from('classes')
+    .select('*, class_members(count)')
+    .eq('teacher_id',currentUser.id)
+    .order('created_at',{ascending:false});
+  myClasses = classes||[];
+  const wrap = document.getElementById('classes-list');
+  if(myClasses.length===0){
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">🏫</div><div class="empty-text">No classes yet</div></div>';
+    return;
+  }
+  wrap.innerHTML = myClasses.map(c=>`
+    <div class="table-wrap" style="margin-bottom:16px;">
+      <div class="table-header">
+        <div>
+          <div class="table-title">${c.name}</div>
+          ${c.description?'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+c.description+'</div>':''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="class-code" style="font-size:20px;padding:8px 14px;">${c.join_code}</div>
+          <button class="btn-sm btn-primary" onclick="openClassDetail('${c.id}')">Manage</button>
+        </div>
+      </div>
+      <div style="padding:14px 20px;display:flex;gap:20px;">
+        <div><div style="font-size:20px;font-weight:800;">${c.class_members?.[0]?.count||0}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;">Students</div></div>
+        <div><div style="font-size:20px;font-weight:800;">${(c.subject_filter||[]).length}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;">Subjects active</div></div>
+        <div><div style="font-size:20px;font-weight:800;">${c.is_active?'✅':'⏸️'}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;">Status</div></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openCreateClass() {
+  document.getElementById('cc-name').value='';
+  document.getElementById('cc-desc').value='';
+  document.querySelectorAll('.subj-check').forEach(c=>c.checked=true);
+  openModal('modal-create-class');
+}
+
+async function createClass() {
+  const name = document.getElementById('cc-name').value.trim();
+  if(!name){toast('Please enter a class name.');return;}
+  const subjects = Array.from(document.querySelectorAll('.subj-check:checked')).map(c=>c.value);
+  // Generate join code
+  const code = String(Math.floor(Math.random()*1000000)).padStart(6,'0');
+  const {data,error} = await sb.from('classes').insert({
+    name,
+    description: document.getElementById('cc-desc').value.trim()||null,
+    join_code: code,
+    teacher_id: currentUser.id,
+    subject_filter: subjects,
+  }).select().single();
+  if(error){toast('Error: '+error.message);return;}
+  closeModal('modal-create-class');
+  toast('Class created! Join code: '+code);
+  loadDashboard();loadClasses();
+}
+
+async function openClassDetail(classId) {
+  detailClassId = classId;
+  const cls = myClasses.find(c=>c.id===classId);
+  if(!cls) return;
+  document.getElementById('cd-title').textContent = cls.name;
+  document.getElementById('cd-code').textContent = cls.join_code;
+  // Load students
+  const {data:members} = await sb.from('class_members')
+    .select('user_id, joined_at, users(name, xp, streak)')
+    .eq('class_id',classId)
+    .order('joined_at',{ascending:false});
+  const list = document.getElementById('cd-students-list');
+  if(!members||members.length===0){
+    list.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0;">No students have joined yet.</div>';
+  } else {
+    list.innerHTML = members.map(m=>{
+      const u=m.users;const lvl=getLevel(u?.xp||0);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--purple-lt);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">${(u?.name||'?').slice(0,2).toUpperCase()}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700;">${u?.name||'Student'}</div><div style="font-size:11px;color:var(--muted);">${lvl.icon} ${lvl.title} · ${u?.xp||0} XP</div></div>
+        <div style="font-size:11px;color:var(--muted);">🔥 ${u?.streak||1} day streak</div>
+      </div>`;
+    }).join('');
+  }
+  openModal('modal-class-detail');
+}
+
+async function deleteClass() {
+  if(!detailClassId) return;
+  if(!confirm('Delete this class? Students will be removed. This cannot be undone.')) return;
+  await sb.from('classes').delete().eq('id',detailClassId);
+  closeModal('modal-class-detail');
+  toast('Class deleted.');
+  loadDashboard();loadClasses();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUESTIONS
+// ═══════════════════════════════════════════════════════════════════
+async function loadQuestions() {
+  const subjectFilter = document.getElementById('q-filter-subject').value;
+  let query = sb.from('questions')
+    .select('*, quiz_units(title, subject_id, subjects(key,name))')
+    .eq('is_active',true)
+    .order('created_at',{ascending:false});
+  const {data:questions} = await query;
+  let filtered = questions||[];
+  if(subjectFilter) filtered = filtered.filter(q=>q.quiz_units?.subjects?.key===subjectFilter);
+
+  const tbody = document.getElementById('questions-body');
+  if(filtered.length===0){
+    tbody.innerHTML='<tr><td colspan="5"><div class="empty"><div class="empty-icon">❓</div><div class="empty-text">No questions yet — add one</div></div></td></tr>';
+    return;
+  }
+  const diffColors = {easy:'badge-green',medium:'badge-blue',hard:'badge-purple'};
+  tbody.innerHTML = filtered.map(q=>`
+    <tr>
+      <td style="max-width:300px;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${q.question_text}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${q.quiz_units?.title||''}</div></td>
+      <td>${q.quiz_units?.subjects?.name||'—'}</td>
+      <td><span class="badge ${diffColors[q.difficulty]||'badge-muted'}">${q.difficulty||'medium'}</span></td>
+      <td style="font-size:12px;color:var(--muted);">${new Date(q.created_at).toLocaleDateString()}</td>
+      <td>
+        <button class="btn-sm btn-primary" style="margin-right:4px;" onclick="editQuestion('${q.id}')">Edit</button>
+        <button class="btn-sm" style="background:var(--red-lt);color:var(--red);border:1px solid var(--red);" onclick="deleteQuestion('${q.id}')">Del</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddQuestion() {
+  editingQuestionId = null;
+  document.getElementById('aq-modal-title').textContent = 'Add question';
+  document.getElementById('aq-save-btn').textContent = 'Save question →';
+  document.getElementById('aq-question').value='';
+  document.getElementById('aq-explanation').value='';
+  document.getElementById('aq-image').value='';
+  document.getElementById('aq-difficulty').value='medium';
+  document.querySelectorAll('.opt-input').forEach((inp,i)=>{inp.value='';});
+  document.querySelectorAll('.correct-radio')[0].checked=true;
+  loadUnitsForSubject();
+  openModal('modal-add-question');
+}
+
+async function loadUnitsForSubject() {
+  const sub = document.getElementById('aq-subject').value;
+  const units = UNIT_MAP[sub]||[];
+  // Try to load from DB first, fall back to static map
+  const {data:dbUnits} = await sb.from('quiz_units')
+    .select('id,title')
+    .eq('subject_id', await getSubjectId(sub))
+    .order('order_index');
+  const select = document.getElementById('aq-unit');
+  const sourceUnits = (dbUnits&&dbUnits.length>0) ? dbUnits : units.map((u,i)=>({id:u.key,title:u.title}));
+  select.innerHTML = sourceUnits.map(u=>`<option value="${u.id}">${u.title}</option>`).join('');
+}
+
+async function getSubjectId(key) {
+  const {data} = await sb.from('subjects').select('id').eq('key',key).single();
+  return data?.id||null;
+}
+
+async function saveQuestion() {
+  const question_text = document.getElementById('aq-question').value.trim();
+  const explanation = document.getElementById('aq-explanation').value.trim();
+  const image_url = document.getElementById('aq-image').value.trim()||null;
+  const difficulty = document.getElementById('aq-difficulty').value;
+  const unit_id = document.getElementById('aq-unit').value;
+  const options = Array.from(document.querySelectorAll('.opt-input')).map(i=>i.value.trim());
+  const correct_index = parseInt(document.querySelector('.correct-radio:checked')?.value||'0');
+
+  if(!question_text){toast('Please enter the question text.');return;}
+  if(options.filter(Boolean).length < 2){toast('Please add at least 2 answer options.');return;}
+  if(!options[correct_index]){toast('The correct answer option cannot be empty.');return;}
+
+  const payload = {question_text,explanation,image_url,difficulty,correct_index,options,created_by:currentUser.id};
+
+  let error;
+  if(editingQuestionId){
+    ({error} = await sb.from('questions').update(payload).eq('id',editingQuestionId));
+  } else {
+    // Resolve unit_id — if it's not a UUID, look it up
+    let resolvedUnitId = unit_id;
+    if(unit_id&&!unit_id.includes('-')){
+      // It's a key, need the actual DB unit
+      // For now store with the key as a reference — backend will need units seeded
+      resolvedUnitId = unit_id;
+    }
+    ({error} = await sb.from('questions').insert({...payload, unit_id: resolvedUnitId}));
+  }
+
+  if(error){toast('Error: '+error.message);return;}
+  closeModal('modal-add-question');
+  toast(editingQuestionId?'Question updated!':'Question added!');
+  loadQuestions();
+}
+
+async function editQuestion(id) {
+  const {data:q} = await sb.from('questions').select('*').eq('id',id).single();
+  if(!q) return;
+  editingQuestionId = id;
+  document.getElementById('aq-modal-title').textContent = 'Edit question';
+  document.getElementById('aq-save-btn').textContent = 'Save changes →';
+  document.getElementById('aq-question').value = q.question_text||'';
+  document.getElementById('aq-explanation').value = q.explanation||'';
+  document.getElementById('aq-image').value = q.image_url||'';
+  document.getElementById('aq-difficulty').value = q.difficulty||'medium';
+  const opts = q.options||[];
+  document.querySelectorAll('.opt-input').forEach((inp,i)=>{ inp.value=opts[i]||''; });
+  const radios = document.querySelectorAll('.correct-radio');
+  radios.forEach((r,i)=>{ r.checked=(i===q.correct_index); });
+  openModal('modal-add-question');
+}
+
+async function deleteQuestion(id) {
+  if(!confirm('Delete this question?')) return;
+  await sb.from('questions').update({is_active:false}).eq('id',id);
+  toast('Question deleted.');
+  loadQuestions();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STUDENTS
+// ═══════════════════════════════════════════════════════════════════
+async function loadStudents() {
+  // Populate class filter
+  const classFilter = document.getElementById('s-filter-class');
+  if(myClasses.length===0){
+    const {data:cls} = await sb.from('classes').select('id,name').eq('teacher_id',currentUser.id);
+    myClasses=cls||[];
+  }
+  const currentVal = classFilter.value;
+  classFilter.innerHTML='<option value="">All classes</option>'+myClasses.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(currentVal) classFilter.value=currentVal;
+
+  const selectedClass = classFilter.value;
+  let query = sb.from('class_members')
+    .select('user_id, class_id, joined_at, classes(name), users(name,xp,streak)')
+    .in('class_id', myClasses.map(c=>c.id));
+  if(selectedClass) query = query.eq('class_id',selectedClass);
+
+  const {data:members} = await query;
+  const tbody = document.getElementById('students-body');
+  if(!members||members.length===0){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students yet</div></div></td></tr>';
+    return;
+  }
+
+  // Get lesson progress counts
+  const userIds = members.map(m=>m.user_id);
+  const {data:progress} = await sb.from('progress_lessons').select('user_id').in('user_id',userIds);
+  const progressMap = {};
+  (progress||[]).forEach(p=>{ progressMap[p.user_id]=(progressMap[p.user_id]||0)+1; });
+
+  tbody.innerHTML = members.map(m=>{
+    const u=m.users; const lvl=getLevel(u?.xp||0);
+    return `<tr>
+      <td><strong>${u?.name||'Student'}</strong></td>
+      <td>${m.classes?.name||'—'}</td>
+      <td><strong>${u?.xp||0}</strong> XP</td>
+      <td>${lvl.icon} ${lvl.title}</td>
+      <td>${progressMap[m.user_id]||0}</td>
+      <td>🔥 ${u?.streak||1}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROGRESS
+// ═══════════════════════════════════════════════════════════════════
+async function loadProgress() {
+  const sel = document.getElementById('p-filter-class');
+  if(myClasses.length===0){
+    const {data:cls} = await sb.from('classes').select('id,name').eq('teacher_id',currentUser.id);
+    myClasses=cls||[];
+  }
+  sel.innerHTML='<option value="">Select a class</option>'+myClasses.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const classId = sel.value;
+  const wrap = document.getElementById('progress-content');
+  if(!classId){wrap.innerHTML='<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">Select a class to view progress</div></div>';return;}
+
+  // Get leaderboard
+  const {data:lb} = await sb.rpc('get_class_leaderboard',{p_class_id:classId});
+  if(!lb||lb.length===0){wrap.innerHTML='<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">No student activity yet</div></div>';return;}
+
+  wrap.innerHTML=`
+    <div class="table-wrap">
+      <div class="table-header"><div class="table-title">Class Leaderboard</div></div>
+      <table>
+        <thead><tr><th>#</th><th>Student</th><th>XP</th><th>Level</th><th>Lessons done</th><th>Streak</th></tr></thead>
+        <tbody>
+          ${lb.map((s,i)=>{
+            const lvl=getLevel(s.xp||0);
+            const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+            return `<tr>
+              <td style="font-size:18px;">${medal}</td>
+              <td><strong>${s.name}</strong></td>
+              <td>${s.xp||0}</td>
+              <td>${lvl.icon} ${lvl.title}</td>
+              <td>${s.lessons_done||0}</td>
+              <td>—</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.style.display='none';},3000);
+}
+</script>
+</body>
+</html>
