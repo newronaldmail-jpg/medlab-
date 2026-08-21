@@ -2005,5 +2005,12 @@ sb.auth.getSession().then(function(res){
   // If no session, login screen stays visible (already shown by default)
 });
 </script>
+  <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js');
+  });
+}
+  </script>
 </body>
 </html>
