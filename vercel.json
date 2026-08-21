@@ -2,10 +2,17 @@
   "version": 2,
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
-    { "src": "admin.html", "use": "@vercel/static" }
+    { "src": "admin.html", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" },
+    { "src": "sw.js", "use": "@vercel/static" },
+    { "src": "icons/*.png", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/sw.js", "dest": "/sw.js" },
+    { "src": "/icons/(.*)", "dest": "/icons/$1" },
     { "src": "/", "dest": "/index.html" }
   ]
 }
+
